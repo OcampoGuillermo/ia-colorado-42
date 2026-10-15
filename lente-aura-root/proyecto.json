@@ -1,0 +1,27 @@
+{
+  "proyecto": "Lente DIA — AURA + ROOT",
+  "instructivo": "N.° 42 Paso 3 · IA al Colorado · ISFDyT RFA",
+  "version": "1.0",
+  "skill": ["Humano digitales", "Realidad aumentada"],
+  "marcador": {
+    "lamina_png": "./lamina.png",
+    "lamina_pdf": "imprimir lamina.html en A4 -> PDF",
+    "targets_mind": "./targets.mind",
+    "como_generar_targets": "Abrir https://hiukim.github.io/mind-ar-js-doc/tools/compile, subir lamina.png, descargar targets.mind y subirlo junto a index.html"
+  },
+  "contenido": {
+    "modo_por_defecto": "video",
+    "video": "./video.mp4 (tu video del Paso 1 o Paso 2, 30s-1min, horizontal)",
+    "modelo_3d_opcional": "./aura.glb (si existe y elegís Modo 3d)",
+    "alternativas_query": "?video=URL&model=URL&marker=URL"
+  },
+  "publicacion": {
+    "donde": "GitHub Pages (https obligatorio para cámara)",
+    "pasos": "Subir index.html + lamina.png + targets.mind + video.mp4 al repo, Settings -> Pages -> Deploy from branch main/(root)"
+  },
+  "impresion": {
+    "formato": "A4, color, papel mate (el brillante refleja)",
+    "luz": "Buena luz, sin reflejos, lámina plana"
+  },
+  "etica": "Recreación con IA con fines educativos. Sin deepfakes. Voz e imagen viajan a servicios externos solo con consentimiento. Ley 25.326."
+}

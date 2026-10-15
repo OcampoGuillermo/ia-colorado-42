@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lente DIA — AURA + ROOT en tu lámina</title>
+<style>
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:#05070b;color:#eaf2ff;font-family:system-ui,sans-serif;overflow:hidden}
+  #ui{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:14px;gap:10px;z-index:10;pointer-events:none}
+  .bar{pointer-events:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;background:rgba(5,10,18,.78);border:1px solid rgba(255,255,255,.15);border-radius:18px;padding:10px 12px;backdrop-filter:blur(10px);max-width:96vw}
+  button{border-radius:999px;border:1px solid rgba(255,255,255,.2);background:#16233a;color:#fff;padding:11px 18px;font-weight:800;cursor:pointer;font-size:14px}
+  button.pri{background:#38e1ff;color:#03222b;border-color:#38e1ff} button.gold{background:#f0c75e;color:#241a02;border-color:#f0c75e}
+  #status{background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px 14px;font-size:13px;max-width:94vw;text-align:center;pointer-events:auto}
+  #hint{font-size:11px;color:#9fb0c8;text-align:center;max-width:94vw;pointer-events:auto}
+  #ar{position:fixed;inset:0} video,canvas{position:absolute!important;inset:0;margin:auto}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/","mindar":"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"}}</script>
+</head>
+<body>
+<div id="ar"></div>
+<div id="ui">
+  <div id="status">📄 Imprimí la lámina en A4 mate. Después tocá <b>Abrir cámara</b> y enfocala.</div>
+  <div class="bar">
+    <button class="pri" id="start">📷 Abrir cámara</button>
+    <button id="stop">Detener</button>
+    <button class="gold" id="sound">🔊 Activar sonido</button>
+    <button id="mode">Modo: video</button>
+  </div>
+  <div id="hint">La cámara solo funciona en <b>https</b> (GitHub Pages), no abriendo el archivo suelto. Si el video sale mudo, tocá Activar sonido. AURA y ROOT son recreaciones con IA (fines educativos).</div>
+</div>
+<video id="clip" playsinline loop muted crossorigin="anonymous" style="display:none"></video>
+<script type="module">
+import * as THREE from 'three';
+import { MindARThree } from 'mindar';
+const $=id=>document.getElementById(id);
+const status=t=>{$('status').innerHTML=t;};
+let mindar=null, started=false, mode='video', videoOK=false, soundOn=false;
+// Query: ?video=URL ?model=URL ?marker=URL
+const q=new URLSearchParams(location.search);
+const MARKER=q.get('marker')||'./targets.mind';
+const VIDEO_SRC=q.get('video')||'./video.mp4';
+const MODEL_SRC=q.get('model')||'./aura.glb';
+$('clip').src=VIDEO_SRC;
+$('clip').addEventListener('canplay',()=>{videoOK=true;});
+$('clip').load();
+$('sound').onclick=()=>{ soundOn=true; const v=$('clip'); v.muted=false; v.play().catch(()=>{}); status('🔊 Sonido activado. Enfocá la lámina.'); };
+$('mode').onclick=e=>{ mode=(mode==='video')?'3d':'video'; e.target.textContent='Modo: '+mode; status(mode==='video'?'📹 Aparece tu video del Paso 1 flotando sobre la lámina.':'🧊 Aparece el modelo 3D (.glb) sobre la lámina.'); };
+$('stop').onclick=async()=>{ try{await mindar?.stop();}catch(e){} started=false; status('Cámara detenida.'); };
+$('start').onclick=async()=>{
+  if(started) return;
+  try{
+    if(!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('Sin soporte'),{name:'NoSupport'});
+    if(location.protocol!=='https:'&&location.hostname!=='localhost'&&location.protocol!=='file:') throw Object.assign(new Error('Sin https'),{name:'NotSecure'});
+    status('📷 Pedimos permiso de cámara… tocá <b>PERMITIR</b> en el aviso del navegador.');
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    stream.getTracks().forEach(t=>t.stop());
+    status('✅ Cámara permitida. Cargando marcador… (apuntá a la lámina)');
+    mindar=new MindARThree({ container:document.querySelector('#ar'), imageTargetSrc:MARKER, maxTrack:1 });
+    const {renderer,scene,camera}=mindar;
+    const anchor=mindar.addAnchor(0);
+    // Plano de video 16:9 flotando sobre la lámina
+    const v=$('clip');
+    const vtex=new THREE.VideoTexture(v);
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.84),new THREE.MeshBasicMaterial({map:vtex,transparent:false,side:THREE.DoubleSide}));
+    plane.position.set(0,0.15,0.05); plane.visible=false; anchor.group.add(plane);
+    // Marco dorado + etiqueta
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(1.58,0.92,0.02),new THREE.MeshBasicMaterial({color:0xf0c75e}));
+    frame.position.set(0,0.15,0.02); frame.visible=false; anchor.group.add(frame);
+    // Etiqueta AURA+ROOT
+    const c=document.createElement('canvas'); c.width=512;c.height=96; const x=c.getContext('2d');
+    x.fillStyle='rgba(0,0,0,.8)'; x.fillRect(0,0,512,96); x.fillStyle='#38e1ff'; x.font='bold 40px sans-serif'; x.textAlign='center'; x.fillText('AURA + ROOT · Lente DIA',256,62);
+    const tag=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,side:THREE.DoubleSide}));
+    tag.position.set(0,0.75,0.05); tag.visible=false; anchor.group.add(tag);
+    // Modelo 3D opcional
+    let model=null;
+    try{ const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js'); const l=new GLTFLoader();
+      model=await l.loadAsync(MODEL_SRC); model.scene.scale.setScalar(0.55); model.scene.position.set(0,-0.4,0.1); model.scene.visible=false; anchor.group.add(model.scene);
+    }catch(e){ /* sin .glb: se usa video */ }
+    anchor.onTargetFound=()=>{ status('✅ ¡Lámina detectada! Aparece tu humano digital.'); tag.visible=true;
+      if(mode==='video'){ plane.visible=true; frame.visible=true; if(model)model.scene.visible=false; v.play().catch(()=>{}); }
+      else{ if(model){model.scene.visible=true;plane.visible=false;frame.visible=false;} else {plane.visible=true;frame.visible=true;v.play().catch(()=>{});} } };
+    anchor.onTargetLost=()=>{ status('🔎 Buscando marcador… enfocá la lámina con buena luz, sin reflejos.'); plane.visible=false; frame.visible=false; tag.visible=false; if(model)model.scene.visible=false; };
+    const clock=new THREE.Clock();
+    renderer.setAnimationLoop(()=>{ const dt=Math.min(0.05,clock.getDelta()),t=clock.elapsedTime;
+      plane.position.y=0.15+Math.sin(t*1.6)*0.03; tag.position.y=0.75+Math.sin(t*1.6+1)*0.02;
+      if(model&&model.scene.visible) model.scene.rotation.y+=dt*0.5;
+      renderer.render(scene,camera); });
+    await mindar.start(); started=true; status('🔎 Buscando marcador… enfocá la lámina impresa.');
+  }catch(err){ const n=err?.name||'';
+    if(n==='NotAllowedError') status('⛔ Permiso <b>denegado</b>. Activá la cámara:<br>Chrome Android: tocá el 🔒 candado de la barra → Permisos → Cámara → <b>Permitir</b> y recargá.<br>iPhone: Ajustes → Safari → Cámara → Permitir, y en el aviso tocá Permitir.<br>Si ya la bloqueaste: Ajustes → Apps → Chrome → Permisos → Cámara.');
+    else if(n==='NotFoundError'||n==='OverconstrainedError') status('❌ No se encontró cámara. Probá en otro celular.');
+    else if(n==='NotSecure'||n==='NotSecureError') status('🔒 La cámara exige <b>https</b>. Publicá la lente en GitHub Pages y abrila desde el celular, no el archivo suelto.');
+    else if(n==='NoSupport') status('❌ Este navegador no soporta cámara web. Usá Chrome o Safari actualizados.');
+    else status('❌ Error: '+(err?.message||err)+'<br>¿Subiste targets.mind junto al index? ¿Hay buena luz?'); }
+};
+</script>
+</body>
+</html>

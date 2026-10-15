@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Escenario AURA + ROOT — Vuelo chaqueño multiagente</title>
+<style>
+:root{--bg:#05070b;--line:rgba(255,255,255,.12);--txt:#eaf2ff;--mut:#9fb0c8;--cy:#38e1ff;--oro:#f0c75e}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--txt);font-family:"Space Grotesk",system-ui,sans-serif;min-height:100dvh}
+header{display:flex;justify-content:center;padding:14px}
+.nav{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;padding:6px 8px;display:flex;gap:8px;align-items:center;max-width:1100px;width:100%}
+.tag{font-size:11px;letter-spacing:.14em;border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;background:transparent;color:var(--txt)}
+.tag.on{background:var(--cy);color:#03222b;border-color:var(--cy);font-weight:800}
+main{max-width:1200px;margin:0 auto;padding:0 12px 40px;display:flex;flex-direction:column;gap:12px}
+#stageBox{position:relative;border:1px solid var(--line);border-radius:24px;overflow:hidden;background:#0a1320}
+#stage{width:100%;height:58dvh;min-height:420px;display:block}
+#subs{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:90%;background:rgba(0,0,0,.72);border:1px solid var(--line);padding:10px 16px;border-radius:12px;font-size:16px;text-align:center}
+#hud{position:absolute;top:10px;left:10px;display:flex;gap:8px}
+.pill{background:rgba(0,0,0,.65);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px}
+.panel{border:1px solid var(--line);border-radius:20px;padding:14px;background:rgba(255,255,255,.03)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{border-radius:999px;border:1px solid var(--line);background:#141d2e;color:#fff;padding:10px 16px;font-weight:700;cursor:pointer}
+button.pri{background:var(--cy);color:#03222b;border-color:var(--cy)} button.gold{background:var(--oro);color:#241a02;border-color:var(--oro)}
+input,select,textarea{width:100%;background:#070d18;color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px}
+textarea{min-height:120px} .col2{display:grid;grid-template-columns:1fr 1fr;gap:10px} @media(max-width:800px){.col2{grid-template-columns:1fr}}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#555} #log{font-size:12px;color:var(--mut);max-height:130px;overflow:auto;white-space:pre-wrap}
+.shortMode #stage{height:72dvh}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<header><div class="nav">
+<span style="font-weight:800;padding:0 8px">AURA + ROOT · VUELO CHAQUEÑO</span>
+<button class="tag on" data-tab="vivo">En vivo</button>
+<button class="tag" data-tab="guion">Idea → Guion</button>
+<button class="tag" data-tab="cap">Capítulo 16:9</button>
+<button class="tag" data-tab="short">Short 9:16</button>
+<button class="tag" data-tab="yt">YouTube</button>
+<span style="margin-left:auto;font-size:11px;color:var(--mut)" id="fps">60 fps</span>
+</div></header>
+<main>
+<div id="stageBox"><canvas id="stage"></canvas>
+<div id="hud"><div class="pill"><span class="dot" id="dA"></span> AURA · historia</div><div class="pill"><span class="dot" id="dR"></span> ROOT · tech</div><div class="pill" id="camLabel">Cámara: amplia</div></div>
+<div id="subs">Dos exploradores en vuelo sobre Formosa. Conectalos y hablá, o armá el guion.</div>
+</div>
+
+<div class="panel" id="p-vivo">
+<div class="col2">
+<div><label>AURA — agent_8301m50tb78effcsq2q0jfhxgm6y</label><input id="idA" value="agent_8301m50tb78effcsq2q0jfhxgm6y">
+<div class="row" style="margin-top:8px"><button class="pri" id="cA">Conectar AURA</button><button id="xA">Cortar</button></div></div>
+<div><label>ROOT — agent_2701m50vk6p4ed1a26b4shgzf6wb</label><input id="idR" value="agent_2701m50vk6p4ed1a26b4shgzf6wb">
+<div class="row" style="margin-top:8px"><button class="pri" id="cR">Conectar ROOT</button><button id="xR">Cortar</button></div></div>
+</div>
+<div class="row" style="margin-top:10px"><button class="gold" id="duelo">Duelo: OFF (los dos responden)</button>
+<button id="demo2">Demo sin conexión (AURA + ROOT)</button>
+<select id="lugar" style="max-width:260px"><option>El Colorado · Bermejo</option><option selected>Bañado La Estrella</option><option>Pilcomayo · Gran Chaco</option><option>Misiones · San Ignacio Miní</option></select>
+</div>
+<div class="row" style="margin-top:8px"><input id="ciudad" list="ciudades" placeholder="Preguntá por voz o escribí: Clorinda, Pirané, Las Lomitas…" style="flex:1;min-width:200px">
+<datalist id="ciudades"><option value="Formosa capital"></option><option value="El Colorado"></option><option value="Clorinda"></option><option value="Pirané"></option><option value="Las Lomitas"></option><option value="Ingeniero Juárez"></option><option value="Bañado La Estrella"></option><option value="San Ignacio Miní"></option></datalist>
+<button class="pri" id="volar">✈ Volar</button><span class="pill" id="cityLabel">📍 Bañado La Estrella</span></div>
+<p style="font-size:11px;color:var(--mut);margin:6px 0 0">Decí en voz alta: “Volemos a Clorinda” o “Vamos a El Colorado” y viajamos sobre la ciudad con satélite real. En ElevenLabs agregá la client-tool <b>viajar_a_ciudad</b> (parámetro ciudad) para viaje automático.</p>
+<div id="log"></div>
+</div>
+
+<div class="panel" id="p-guion" hidden>
+<label>Idea (una frase) + lugar de Formosa</label>
+<input id="idea" value="Un yacaré y un sensor discuten quién cuida mejor el Bañado La Estrella">
+<div class="row" style="margin:8px 0"><button class="pri" id="gen">Generar guion AURA + ROOT</button><button id="useCap">Enviar a Capítulo / Short</button></div>
+<div class="row" style="margin:8px 0"><select id="destVideo" style="max-width:260px"><option value="el colorado">Video viaja a: El Colorado</option><option value="banado" selected>Video viaja a: Bañado La Estrella</option><option value="clorinda">Video viaja a: Clorinda</option><option value="las lomitas">Video viaja a: Las Lomitas</option><option value="formosa">Video viaja a: Formosa capital</option></select>
+<button class="gold" id="seqVideo">▶ Secuencia para video: hablan primero, después viajan</button></div>
+<textarea id="guion">AURA: Desde el aire veo el brillo del Bañado, memoria viva del Pilcomayo. Esto se formó con desbordes y es refugio de miles de especies. ¿Sabías que cambia con cada crecida?
+ROOT: Lo veo en mi tablet: el sensor de nivel subió 12 centímetros y el dron cuenta 40 yacarés. La tecnología mide lo que tu historia explica. ¿Probamos una alerta temprana?
+AURA: En El Colorado el Bermejo enseñó a respetar al río salvaje. Los obrajes y el algodón vivieron de este monte. ¿Qué sensor pondrías vos en el Bermejo?
+ROOT: Un limnímetro solar con radio, más una cámara trampa para el oso melero. Datos abiertos para la escuela. Historia más tecnología cuidan mejor. ¿Cerramos con una pregunta para el aula?</textarea>
+</div>
+
+<div class="panel" id="p-cap" hidden>
+<div class="row"><button class="pri" id="playCap">▶ Reproducir Capítulo 16:9 (voz local)</button><button id="stopCap">Detener</button><span style="font-size:12px;color:var(--mut)">Cámaras de cine automáticas + subtítulos</span></div>
+</div>
+<div class="panel" id="p-short" hidden>
+<div class="row"><button class="pri" id="playShort">▶ Reproducir Short 9:16 vertical</button><button id="stopShort">Detener</button></div>
+</div>
+<div class="panel" id="p-yt" hidden>
+<div class="row"><button class="gold" id="genYT">Generar ficha YouTube + miniatura</button></div>
+<label>Título</label><input id="ytT">
+<label>Descripción</label><textarea id="ytD"></textarea>
+<label>Etiquetas</label><input id="ytK">
+<div class="row"><img id="thumb" style="max-width:320px;border-radius:12px;border:1px solid var(--line)" alt=""><a id="dl" download="miniatura-aura-root.png" style="color:var(--cy)">Descargar miniatura</a></div>
+</div>
+<p style="font-size:11px;color:var(--mut)">En vivo usa micrófono → ElevenLabs (agentes públicos, Security OFF). Cinematic usa voz del dispositivo para no gastar créditos. Grabá con 2 celulares como en Paso 1. Transparencia: son recreaciones con IA.</p>
+</main>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const $=id=>document.getElementById(id);
+const log=m=>{ $('log').textContent=(new Date().toLocaleTimeString()+' '+m+'\n'+$('log').textContent).slice(0,2500); };
+document.querySelectorAll('.tag').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  const t=b.dataset.tab; $('p-vivo').hidden=t!=='vivo'; $('p-guion').hidden=t!=='guion'; $('p-cap').hidden=t!=='cap'; $('p-short').hidden=t!=='short'; $('p-yt').hidden=t!=='yt';
+  document.body.classList.toggle('shortMode', t==='short'); onResize(); if(t==='cap') setCam('wide'); if(t==='short') setCam('vert'); });
+
+// --- 3D base ---
+const canvas=$('stage'), renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x7ec8e8); scene.fog=new THREE.Fog(0x7ec8e8,9,28);
+const camera=new THREE.PerspectiveCamera(45,1.7,0.1,100); camera.position.set(0,1.9,6.2);
+const controls=new OrbitControls(camera,canvas); controls.target.set(0,1.4,0); controls.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xd8ecff,0x2c3a2c,1));
+const sun=new THREE.DirectionalLight(0xfff0d0,1.7); sun.position.set(-4,6,4); scene.add(sun);
+const rim=new THREE.DirectionalLight(0x38e1ff,0.8); rim.position.set(4,2,-4); scene.add(rim);
+// --- Paisaje mejorado + satélite real (Esri, sin key) ---
+const groundMat = new THREE.MeshStandardMaterial({color:0x3f7c52, roughness:1, side:THREE.DoubleSide});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(24,24), groundMat);
+ground.rotation.x=-Math.PI/2; ground.position.y=-1.6; scene.add(ground);
+const river=new THREE.Mesh(new THREE.PlaneGeometry(2.4,30),new THREE.MeshStandardMaterial({color:0x3aa0d0,roughness:.35,side:THREE.DoubleSide}));
+river.rotation.x=-Math.PI/2; river.position.set(1,-1.57,0); river.rotation.z=0.2; scene.add(river);
+// anillo de monte lejano
+{ const treeG=new THREE.ConeGeometry(0.35,1.1,7), treeM=new THREE.MeshStandardMaterial({color:0x2c5a30,roughness:1});
+  const trees=new THREE.InstancedMesh(treeG,treeM,140); const d=new THREE.Object3D();
+  for(let i=0;i<140;i++){ const a=(i/140)*Math.PI*2, r=11+Math.random()*2.5; d.position.set(Math.cos(a)*r,-1.1+Math.random()*0.2,Math.sin(a)*r); d.scale.setScalar(0.8+Math.random()*1.4); d.updateMatrix(); trees.setMatrixAt(i,d.matrix); }
+  scene.add(trees); }
+// pájaros
+const birds=new THREE.Points(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(Array.from({length:60},()=>[(Math.random()-0.5)*20,2+Math.random()*3,-4-Math.random()*8]),3)),new THREE.PointsMaterial({color:0x222222,size:0.06})); scene.add(birds);
+// manzanas de ciudad (regenerables)
+let cityGroup=new THREE.Group(); scene.add(cityGroup);
+function buildBlocks(n=55){ while(cityGroup.children.length) cityGroup.remove(cityGroup.children[0]);
+  const mats=[0xd8cfbc,0xb9c2cc,0xe8e2d2,0x9fb08a].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.9}));
+  for(let i=0;i<n;i++){ const w=0.25+Math.random()*0.4, h=0.15+Math.random()*Math.random()*1.1, dep=0.25+Math.random()*0.4;
+    const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,dep),mats[i%4]); b.position.set((Math.random()-0.5)*9,-1.6+h/2,(Math.random()-0.5)*9); cityGroup.add(b); } }
+// cartel flotante con nombre de ciudad
+let labelSprite=null;
+function setLabel(txt){ if(labelSprite){scene.remove(labelSprite);} const c=document.createElement('canvas'); c.width=512; c.height=128; const x=c.getContext('2d');
+  x.fillStyle='rgba(0,0,0,0.65)'; x.beginPath(); x.roundRect(6,18,500,92,22); x.fill(); x.fillStyle='#38e1ff'; x.font='bold 44px sans-serif'; x.textAlign='center'; x.fillText(txt.slice(0,22),256,80);
+  const tex=new THREE.CanvasTexture(c); const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true})); sp.scale.set(3.4,0.85,1); sp.position.set(0,3.4,-3); scene.add(sp); labelSprite=sp; }
+const CIUDADES={
+  'formosa':{n:'Formosa capital',lat:-26.1775,lon:-58.1781,rio:'Río Paraguay',sky:0x7ec8e8,d:'Capital sobre el Paraguay. Casa de Gobierno, catedral, puerto y costanera.'},
+  'el colorado':{n:'El Colorado',lat:-26.3083,lon:-59.3717,rio:'Río Bermejo',sky:0x87b5e0,d:'Sur formoseño, chacras y Bermejo rojo. Obraje, quebracho y algodón.'},
+  'colorado':{n:'El Colorado',lat:-26.3083,lon:-59.3717,rio:'Río Bermejo',sky:0x87b5e0,d:'Sur formoseño, chacras y Bermejo rojo.'},
+  'clorinda':{n:'Clorinda',lat:-25.2857,lon:-57.7189,rio:'Río Pilcomayo',sky:0xd9c07a,d:'Frontera con Paraguay, paso y Pilcomayo. Comercio y humedales.'},
+  'pirane':{n:'Pirané',lat:-25.7274,lon:-59.1086,rio:'Riacho',sky:0x7ec8e8,d:'Centro agrícola del este formoseño.'},
+  'pirané':{n:'Pirané',lat:-25.7274,lon:-59.1086,rio:'Riacho',sky:0x7ec8e8,d:'Centro agrícola del este formoseño.'},
+  'las lomitas':{n:'Las Lomitas',lat:-24.7036,lon:-60.5936,rio:'Bañado',sky:0x7ec8e8,d:'Portal del Bañado. Memoria pilagá y Rincón Bomba.'},
+  'lomitas':{n:'Las Lomitas',lat:-24.7036,lon:-60.5936,rio:'Bañado',sky:0x7ec8e8,d:'Portal del Bañado.'},
+  'ingeniero juarez':{n:'Ingeniero Juárez',lat:-23.896,lon:-61.857,rio:'Chaco seco',sky:0xd9a86c,d:'Oeste formoseño, wichí y monte chaqueño.'},
+  'juarez':{n:'Ingeniero Juárez',lat:-23.896,lon:-61.857,rio:'Chaco seco',sky:0xd9a86c,d:'Oeste formoseño.'},
+  'banado':{n:'Bañado La Estrella',lat:-24.15,lon:-60.35,rio:'Desborde Pilcomayo',sky:0x7ec8e8,d:'Tercer humedal de Sudamérica. Yacarés, palmas y agua.'},
+  'bañado':{n:'Bañado La Estrella',lat:-24.15,lon:-60.35,rio:'Desborde Pilcomayo',sky:0x7ec8e8,d:'Tercer humedal.'},
+  'san ignacio':{n:'San Ignacio Miní',lat:-27.258,lon:-55.531,rio:'Paraná',sky:0x6aa8d8,d:'Reducción jesuítica 1632. Patrimonio UNESCO 1984.'},
+  'misiones':{n:'San Ignacio Miní',lat:-27.258,lon:-55.531,rio:'Paraná',sky:0x6aa8d8,d:'Misiones jesuíticas.'},
+};
+let currentCity='banado';
+const texLoader=new THREE.TextureLoader(); texLoader.setCrossOrigin('anonymous');
+function esriURL(lat,lon,span=0.14){ const d=span/2, cos=1/Math.max(0.4,Math.cos(lat*Math.PI/180));
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${lon-d*cos},${lat-d},${lon+d*cos},${lat+d}&bboxSR=4326&imageSR=4326&size=1024%2C1024&format=png32&f=image`; }
+function flyToCity(raw,announce=true){ const key=(raw||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let found=null; for(const k in CIUDADES){ if(key.includes(k)){found=k;break;} }
+  if(!found){ log('ciudad no encontrada: '+raw); return 'No encontré '+raw+'. Probá Formosa, El Colorado, Clorinda, Pirané, Las Lomitas.'; }
+  const C=CIUDADES[found]; currentCity=found;
+  $('cityLabel').textContent='📍 '+C.n+' · '+C.rio; setLabel(C.n);
+  scene.background.set(C.sky); scene.fog.color.set(C.sky);
+  $('subs').textContent='✈ Volando a '+C.n+' — '+C.d;
+  buildBlocks(C.n.includes('Bañado')?18:55);
+  log('volando a '+C.n);
+  texLoader.load(esriURL(C.lat,C.lon,C.n.includes('Bañado')?0.35:0.14), t=>{ t.colorSpace=THREE.SRGBColorSpace; groundMat.map=t; groundMat.color.set(0xffffff); groundMat.needsUpdate=true; log('satélite OK '+C.n); }, undefined, ()=>log('satélite falló, uso procedural'));
+  // subida y bajada de cámara para sensación de viaje
+  camera.position.set(0,4.5,8); setTimeout(()=>setCam('wide'),900);
+  if(announce && !playing){ /* la voz del agente lo narra */ }
+  return 'Volando a '+C.n+'. '+C.d;
+}
+function detectCity(t){ if(!t) return; flyToCity(t,false); }
+const clouds=[]; const cm=new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:.9});
+for(let i=0;i<10;i++){const g=new THREE.Group();for(let j=0;j<3;j++){const s=new THREE.Mesh(new THREE.SphereGeometry(0.4+Math.random()*0.35,14,14),cm);s.position.set(j*0.55-0.5,Math.random()*0.2,0);s.scale.y=0.55;g.add(s);}g.position.set((Math.random()-0.5)*18,3+Math.random()*3,-5-Math.random()*8);scene.add(g);clouds.push(g);}
+
+const M=(g,m,x=0,y=0,z=0)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);return o;};
+const red=new THREE.MeshStandardMaterial({color:0xd63a2f,metalness:.55,roughness:.35,side:THREE.DoubleSide});
+const gold=new THREE.MeshStandardMaterial({color:0xf2b73d,metalness:.7,roughness:.3,side:THREE.DoubleSide});
+const skin=new THREE.MeshStandardMaterial({color:0xf2c9a4,roughness:.65});
+const white=new THREE.MeshStandardMaterial({color:0xf4f7fb,roughness:.5,side:THREE.DoubleSide});
+const denim=new THREE.MeshStandardMaterial({color:0x2b4a7a,roughness:.7,side:THREE.DoubleSide});
+const glowC=new THREE.MeshStandardMaterial({color:0x06222b,emissive:0x38e1ff,emissiveIntensity:2.4});
+const glowO=new THREE.MeshStandardMaterial({color:0x331100,emissive:0xff8a1a,emissiveIntensity:2.6});
+
+function makeMouth(lipColor){const g=new THREE.Group();
+  const lips=M(new THREE.BoxGeometry(0.2,0.045,0.02),new THREE.MeshStandardMaterial({color:lipColor,roughness:.5}),0,0,0.01);g.add(lips);
+  const inner=M(new THREE.PlaneGeometry(0.18,0.15),new THREE.MeshBasicMaterial({color:0x0a0505}),0,-0.03,-0.005);g.add(inner);
+  const teeth=M(new THREE.PlaneGeometry(0.16,0.04),new THREE.MeshBasicMaterial({color:0xffffff}),0,0.02,0);g.add(teeth);
+  const tongue=M(new THREE.PlaneGeometry(0.09,0.055),new THREE.MeshBasicMaterial({color:0xd46a7a}),0,-0.075,0);g.add(tongue);
+  return {g,lips,inner,teeth,tongue,open:0,wide:0,round:0,t:{open:0,wide:0,round:0},
+    apply(e,dt){const k=1-Math.pow(0.0001,dt);this.open+=(this.t.open-this.open)*k;this.wide+=(this.t.wide-this.wide)*k;this.round+=(this.t.round-this.round)*k;
+      const h=Math.max(0.008,this.open*0.16*(0.4+e*1.4)+this.round*0.09+0.008);const w=0.11+this.wide*0.11+this.open*0.03-this.round*0.04;
+      this.lips.scale.set(Math.max(0.3,w/0.2),Math.max(0.25,h/0.045),1);this.inner.scale.set(Math.max(0.05,w/0.18),Math.max(0.05,h/0.15),1);
+      this.inner.visible=h>0.015;this.teeth.visible=h>0.02;this.tongue.visible=this.open>0.25;}};
+}
+function vism(ch){ch=(ch||'').toLowerCase();if('aáà'.includes(ch))return'A';if('eéèiíìy'.includes(ch))return'E';if('oóòuúùw'.includes(ch))return'O';if('mbp'.includes(ch))return'M';if(' ,.'.includes(ch))return'R';return'N';}
+function setT(mo,v,a=1){mo.t={open:0,wide:0,round:0};if(v==='A')mo.t.open=a;else if(v==='E')mo.t.wide=a;else if(v==='O')mo.t.round=a;else if(v==='N')mo.t.open=0.15*a;}
+
+// AURA
+function buildAura(){const g=new THREE.Group();
+  const torso=M(new THREE.CapsuleGeometry(0.4,0.45,6,16),red,0,1.3,0);torso.rotation.x=-0.25;g.add(torso);
+  g.add(M(new THREE.BoxGeometry(0.46,0.36,0.16),gold,0,1.45,0.3));
+  g.add(M(new THREE.TorusGeometry(0.1,0.025,10,24),gold,0,1.45,0.4));const rc=M(new THREE.CircleGeometry(0.088,24),glowC,0,1.45,0.405);g.add(rc);
+  const head=new THREE.Group();head.position.set(0,2.05,0.08);g.add(head);
+  const hel=M(new THREE.SphereGeometry(0.36,24,24),red,0,0,0);hel.scale.set(1.08,1,1.02);head.add(hel);
+  const face=M(new THREE.SphereGeometry(0.28,20,20),new THREE.MeshStandardMaterial({color:0xf6e3c2,roughness:.6}),0,-0.04,0.17);face.scale.set(0.95,0.9,0.7);head.add(face);
+  const eL=M(new THREE.SphereGeometry(0.065,14,14),glowC,-0.11,0.02,0.34);eL.scale.set(1.3,0.9,0.5);head.add(eL);const eR=eL.clone();eR.position.x=0.11;head.add(eR);
+  const mo=makeMouth(0x7a1f1f);mo.g.position.set(0,-0.17,0.36);head.add(mo.g);
+  const arms=[];for(const s of[-1,1]){const a=new THREE.Group();a.position.set(0.5*s,1.55,0);a.add(M(new THREE.SphereGeometry(0.15,14,14),gold,0,0,0));a.add(M(new THREE.CylinderGeometry(0.1,0.09,0.4,12),red,0,-0.26,0));a.add(M(new THREE.SphereGeometry(0.11,12,12),red,0,-0.52,0));g.add(a);arms.push(a);}
+  const fl=[];for(const s of[-1,1]){const f=M(new THREE.ConeGeometry(0.09,0.5,12),glowO,0.2*s,0.75,-0.25);f.rotation.x=-2.6;g.add(f);fl.push(f);}
+  g.position.set(-0.95,0.15,0);g.rotation.x=-0.12;scene.add(g);return{ g,head,mo,arms,fl,queue:[],speaking:false,energy:0};}
+// ROOT niño doctor con anteojos
+function buildRoot(){const g=new THREE.Group();
+  const coat=M(new THREE.CapsuleGeometry(0.36,0.5,6,16),white,0,1.28,0);coat.rotation.x=-0.22;g.add(coat);
+  g.add(M(new THREE.BoxGeometry(0.3,0.28,0.05),new THREE.MeshStandardMaterial({color:0x38e1ff,roughness:.4}),0,1.42,0.34));
+  const head=new THREE.Group();head.position.set(0,2.02,0.08);g.add(head);
+  head.add(M(new THREE.SphereGeometry(0.34,26,26),skin,0,0,0));
+  const hair=M(new THREE.SphereGeometry(0.35,24,18,0,Math.PI*2,0,1.5),new THREE.MeshStandardMaterial({color:0x2a2018,roughness:.8}),0,0.05,-0.03);head.add(hair);
+  for(const s of[-1,1]){head.add(M(new THREE.SphereGeometry(0.06,12,12),skin,0.34*s,-0.02,0));}
+  const eM=new THREE.MeshStandardMaterial({color:0x3a2415,roughness:.4});
+  const eL=M(new THREE.SphereGeometry(0.05,14,14),eM,-0.11,0.0,0.3);head.add(eL);const eR=eL.clone();eR.position.x=0.11;head.add(eR);
+  const glM=new THREE.MeshStandardMaterial({color:0x111111,metalness:.4,roughness:.4});
+  for(const s of[-1,1]){const r=M(new THREE.TorusGeometry(0.095,0.014,10,24),glM,0.115*s,0.0,0.31);head.add(r);
+    head.add(M(new THREE.CircleGeometry(0.088,20),new THREE.MeshStandardMaterial({color:0xbfeaff,transparent:true,opacity:0.28}),0.115*s,0.0,0.315));}
+  head.add(M(new THREE.BoxGeometry(0.06,0.014,0.014),glM,0,0.01,0.31));
+  head.add(M(new THREE.SphereGeometry(0.035,10,10),new THREE.MeshStandardMaterial({color:0xe8b08a}),0,-0.07,0.32));
+  for(const s of[-1,1]){const ch=M(new THREE.SphereGeometry(0.05,10,10),new THREE.MeshStandardMaterial({color:0xf0a8a8,transparent:true,opacity:.55}),0.16*s,-0.08,0.26);ch.scale.z=0.4;head.add(ch);}
+  const mo=makeMouth(0xb96a6a);mo.g.position.set(0,-0.17,0.31);head.add(mo.g);
+  const arms=[];for(const s of[-1,1]){const a=new THREE.Group();a.position.set(0.46*s,1.55,0);a.add(M(new THREE.CylinderGeometry(0.09,0.085,0.4,12),white,0,-0.24,0));a.add(M(new THREE.SphereGeometry(0.09,12,12),skin,0,-0.5,0));g.add(a);arms.push(a);}
+  const tab=M(new THREE.BoxGeometry(0.3,0.2,0.02),new THREE.MeshStandardMaterial({color:0x0b1626}),-0.1,1.05,0.35);g.add(tab);
+  const holo=M(new THREE.PlaneGeometry(0.34,0.22),new THREE.MeshBasicMaterial({color:0x38e1ff,transparent:true,opacity:0.35,side:THREE.DoubleSide}),-0.1,1.25,0.35);g.add(holo);g.userData.holo=holo;
+  const fl=[];for(const s of[-1,1]){const f=M(new THREE.ConeGeometry(0.085,0.48,12),glowO,0.18*s,0.72,-0.22);f.rotation.x=-2.6;g.add(f);fl.push(f);}
+  g.position.set(0.95,0.12,0);g.rotation.x=-0.12;scene.add(g);return{ g,head,mo,arms,fl,holo,queue:[],speaking:false,energy:0};}
+const AURA=buildAura(), ROOT=buildRoot();
+
+// cámaras
+let camGoal=null;
+function setCam(n){const P={wide:[new THREE.Vector3(0,1.9,6.2),new THREE.Vector3(0,1.4,0)],aura:[new THREE.Vector3(-1.1,1.9,3.0),new THREE.Vector3(-0.95,1.6,0)],root:[new THREE.Vector3(1.1,1.9,3.0),new THREE.Vector3(0.95,1.6,0)],vert:[new THREE.Vector3(0,1.7,4.6),new THREE.Vector3(0,1.45,0)],top:[new THREE.Vector3(0,6,1.5),new THREE.Vector3(0,0,0)]}[n]||[camera.position,controls.target];
+  camGoal={p:P[0],t:P[1],s:performance.now()};$('camLabel').textContent='Cámara: '+n;}
+
+// audio/elevenlabs por personaje
+let ctx=null,an=null,buf=null;
+async function ensureMic(){if(ctx)return;ctx=new(window.AudioContext||window.webkitAudioContext)();an=ctx.createAnalyser();an.fftSize=512;buf=new Uint8Array(an.frequencyBinCount);
+  try{const s=await navigator.mediaDevices.getUserMedia({audio:true});ctx.createMediaStreamSource(s).connect(an);}catch(e){log('mic bloqueado: '+e.message);}}
+function energy(){if(!an)return 0;an.getByteTimeDomainData(buf);let sm=0;for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128;sm+=v*v;}return Math.min(1,Math.sqrt(sm/buf.length)*4);}
+function pushQ(ch,qs,ds,ds2){for(let i=0;i<ch.length;i++)ch&&qs.push({c:ch[i],t:performance.now()+(qs._t0!=null?0:0)+( (arguments[1]&&false)?0:0)});}
+let convA=null,convR=null,duel=false;
+$('duelo').onclick=e=>{duel=!duel;e.target.textContent='Duelo: '+(duel?'ON':'OFF (los dos responden)');};
+async function connect(which){await ensureMic();await ctx.resume();
+  const isA=which==='A', id=$(isA?'idA':'idR').value.trim(), who=isA?AURA:ROOT;
+  if(!id){log('falta id '+which);return;}
+  setDot(which,'orange');log('conectando '+(isA?'AURA':'ROOT'));
+  try{const mod=await import('https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/dist/index.js').catch(()=>import('https://esm.sh/@elevenlabs/client@1.26.0'));
+    const C=which==='A'?convA:convR; if(C)try{await C.endSession();}catch(e){}
+    const conv=await mod.Conversation.startSession({agentId:id,
+      clientTools:{ viajar_a_ciudad: async ({ciudad})=>flyToCity(String(ciudad||'')) },
+      onConnect:()=>{setDot(which,'lime');log('conectado '+which);},
+      onDisconnect:()=>{setDot(which,'#555');who.speaking=false;},
+      onError:e=>{log('err '+which+': '+(e?.message||JSON.stringify(e)).slice(0,200));},
+      onMessage:m=>{const t=m?.message||m?.text;if(t){$('subs').textContent=(isA?'AURA: ':'ROOT: ')+t;detectCity(t);}
+        const chs2=m?.chars||m?.alignment?.chars;if(chs2){const st=m?.char_start_times_ms||m?.alignment?.char_start_times_ms||[];const du=m?.char_durations_ms||m?.alignment?.char_durations_ms||[];const now=performance.now();chs2.forEach((c,i)=>who.queue.push({c,t:now+(st[i]||0),d:du[i]||90}));if(who.queue.length>400)who.queue=who.queue.slice(-400);}},
+      onModeChange:mo=>{who.speaking=(mo?.mode==='speaking');setDot(which,who.speaking?'#38e1ff':'lime');if(who.speaking)setCam(isA?'aura':'root');}
+    });
+    if(isA)convA=conv;else convR=conv;
+  }catch(err){log('fallo '+which+': '+err.message);setDot(which,'red');}
+}
+function setDot(w,c){$(w==='A'?'dA':'dR').style.background=c;}
+$('cA').onclick=()=>connect('A');$('cR').onclick=()=>connect('R');
+$('xA').onclick=async()=>{try{await convA?.endSession();}catch(e){}AURA.speaking=false;setDot('A','#555');};
+$('xR').onclick=async()=>{try{await convR?.endSession();}catch(e){}ROOT.speaking=false;setDot('R','#555');};
+$('lugar').onchange=e=>{const v=e.target.value;if(v.includes('Colorado'))flyToCity('el colorado');else if(v.includes('Bañado'))flyToCity('banado');else if(v.includes('Pilcomayo'))flyToCity('clorinda');else flyToCity('san ignacio');};
+$('volar').onclick=()=>flyToCity($('ciudad').value||'formosa');
+
+// demo sin conexión
+$('demo2').onclick=()=>{const lines=[['A','Hola, soy AURA sobre el Bañado. Veo agua y palmas, historia viva del Pilcomayo.'],['R','Y yo mido 12 centímetros de crecida con boyas solares. Historia más datos cuidan mejor.']];playLines(lines,false);};
+
+// guion
+$('gen').onclick=()=>{const idea=$('idea').value.trim()||'el Bañado', lug=$('lugar').value;
+  $('guion').value=`AURA: Volamos sobre ${lug}. ${idea}. Desde la historia, este monte y este río se defienden hace siglos. ¿Qué ves vos desde tu tablet?\nROOT: Veo sensores y drones: nivel del agua, focos de calor y cámaras trampa. La IA cuenta yacarés y predice crecidas. Mi pregunta: ¿qué tecnología llevarías a tu paraje?\nAURA: En El Colorado el Bermejo enseñó a sembrar con respeto. Obraje, quebracho y algodón marcaron generaciones. ¿Cómo sumamos datos sin perder memoria?\nROOT: Con estaciones solares en la escuela, datos abiertos y permiso de la comunidad. Ciencia con respeto. Cerramos con un desafío para el aula.`;log('guion generado');};
+$('useCap').onclick=()=>{document.querySelector('[data-tab="cap"]').click();};
+
+// cine con voz local
+let playing=false,stopFlag=false;
+function parseGuion(){return $('guion').value.split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{const m=s.match(/^(AURA|ROOT)\s*:\s*(.*)/i);return m?{w:m[1][0]==='A'?'A':'R',t:m[2]}:{w:'A',t:s};});}
+async function playLines(lines,wide=true){stopFlag=false;playing=true;
+  for(const L of lines){if(stopFlag)break;const who=L.w==='A'?AURA:ROOT, other=L.w==='A'?ROOT:AURA;
+    who.speaking=true;other.speaking=false;setCam(L.w==='A'?'aura':'root');$('subs').textContent=(L.w==='A'?'AURA: ':'ROOT: ')+L.t;
+    await speak(L.t,who);who.speaking=false;await new Promise(r=>setTimeout(r,350));}
+  playing=false;setCam('wide');}
+function speak(text,who){return new Promise(res=>{const u=new SpeechSynthesisUtterance(text);u.lang='es-ES';u.rate=1;
+  u.onboundary=e=>{const c=text.slice(e.charIndex||0,(e.charIndex||0)+8).toLowerCase();const v=c.match(/[aeiouáéíóú]/);setT(who.mo,!v?'N':('aá'.includes(v[0])?'A':'eéií'.includes(v[0])?'E':'O'),0.9);};
+  const iv=setInterval(()=>{if(!who.speaking){clearInterval(iv);return;}setT(who.mo,['A','E','O'][Math.floor(Math.random()*3)],0.4+who.energy);},240);
+  u.onend=()=>{clearInterval(iv);res();};speechSynthesis.cancel();speechSynthesis.speak(u);});}
+$('playCap').onclick=()=>{document.body.classList.remove('shortMode');onResize();playLines(parseGuion());};
+$('playShort').onclick=()=>{document.body.classList.add('shortMode');onResize();setCam('vert');playLines(parseGuion());};
+$('stopCap').onclick=$('stopShort').onclick=()=>{stopFlag=true;speechSynthesis.cancel();AURA.speaking=ROOT.speaking=false;};
+// Secuencia para video: hablan primero, después viajan (lista para grabar con 2do celular)
+$('seqVideo').onclick=async()=>{ const dest=$('destVideo').value||'el colorado';
+  stopFlag=false; playing=true; setCam('wide');
+  const pre=[ {w:'A',t:'Hola, somos AURA y ROOT, en vuelo sobre el Bañado La Estrella. Yo traigo la historia chaqueña.'}, {w:'R',t:'Y yo traigo la tecnología: sensores, drones e inteligencia artificial para cuidar este territorio.'}, {w:'A',t:'Hablamos primero aquí arriba, y ahora viajamos juntos para mostrarte la ciudad desde el aire.'} ];
+  for(const L of pre){ if(stopFlag)break; const who=L.w==='A'?AURA:ROOT; who.speaking=true; (L.w==='A'?ROOT:AURA).speaking=false; setCam(L.w==='A'?'aura':'root'); $('subs').textContent=(L.w==='A'?'AURA: ':'ROOT: ')+L.t; await speak(L.t,who); who.speaking=false; await new Promise(r=>setTimeout(r,300)); }
+  if(stopFlag){playing=false;return;}
+  $('subs').textContent='✈ Viajando a '+dest+'… grabá ahora la llegada'; setCam('top'); flyToCity(dest,false); log('viaje video a '+dest);
+  await new Promise(r=>setTimeout(r,2600)); if(stopFlag){playing=false;return;}
+  const post=[ {w:'A',t:'Ya estamos sobrevolando. Abajo se ve la ciudad real con satélite. Esta tierra tiene historia de obrajes, ríos y comunidades.'}, {w:'R',t:'Y desde mi tablet confirmo los datos: nivel del agua, verde del monte y puntos de la escuela. Historia más tecnología, cuidado completo.'} ];
+  for(const L of post){ if(stopFlag)break; const who=L.w==='A'?AURA:ROOT; who.speaking=true; (L.w==='A'?ROOT:AURA).speaking=false; setCam(L.w==='A'?'aura':'root'); $('subs').textContent=(L.w==='A'?'AURA: ':'ROOT: ')+L.t; await speak(L.t,who); who.speaking=false; await new Promise(r=>setTimeout(r,300)); }
+  playing=false; setCam('wide'); $('subs').textContent='Secuencia lista — cortá la grabación aquí.'; log('secuencia video terminada'); };
+
+// youtube
+$('genYT').onclick=()=>{const idea=$('idea').value.slice(0,60),lug=$('lugar').value;
+  $('ytT').value=`AURA + ROOT en vuelo sobre ${lug} | ${idea} | IA al Colorado`;
+  $('ytD').value=`Dos humanos digitales voladores: AURA (historia chaqueña) y ROOT (IA y tecnología) conversan sobre ${idea} en ${lug}.\n\nInstructivo 42 Paso 2 · ISFDyT RFA · Prácticas Profesionalizantes.\nSon recreaciones con IA con fines educativos. Voz vía ElevenLabs en vivo / voz local en cine.\n\nCapítulos: 00:00 Vuelo · 00:30 AURA historia · 01:00 ROOT sensores · 01:30 Cierre para el aula.`;
+  $('ytK').value='IA al Colorado, humano digital, AURA, ROOT, Formosa, Chaco, Misiones, Bañado La Estrella, El Colorado, ElevenLabs, multiagente';
+  renderer.render(scene,camera);const url=renderer.domElement.toDataURL('image/png');$('thumb').src=url;$('dl').href=url;log('miniatura lista');};
+
+// loop
+const clock=new THREE.Clock();let frames=0,ft=performance.now();
+function tickQ(who){const now=performance.now();while(who.queue.length&&now>who.queue[who.queue.length-1].t+2000)who.queue.shift();
+  const c=who.queue.find(a=>now>=a.t&&now<=a.t+(a.d||90));if(c){const v=vism(c.c);if(v==='M')setT(who.mo,'M');else setT(who.mo,v,0.6+who.energy);return true;}return false;}
+function onResize(){const w=canvas.clientWidth||canvas.parentElement.clientWidth,h=canvas.clientHeight||innerHeight*0.58;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener('resize',onResize);onResize();
+function animate(){requestAnimationFrame(animate);const dt=Math.min(0.05,clock.getDelta()),t=clock.elapsedTime;
+  for(const [W,x] of[[AURA,-0.95],[ROOT,0.95]]){W.g.position.y=0.13+Math.sin(t*1.8+x)*0.13;W.g.position.x=x+Math.sin(t*0.6)*0.05;W.g.rotation.z=Math.sin(t*0.9+x)*0.05;
+    W.fl.forEach((f,i)=>f.scale.set(1,1+Math.sin(t*26+i*2)*0.25+(W.speaking?0.5:0),1));
+    W.energy+=(((W.speaking?energy()*1.2+0.3:0.05))-W.energy)*Math.min(1,dt*5);
+    const had=tickQ(W);if(W.speaking&&!had&&!playing)setT(W.mo,['A','E','O'][Math.floor(t*6)%3],0.35+W.energy);if(!W.speaking&&!had){W.mo.t.open*=0.9;W.mo.t.wide*=0.9;W.mo.t.round*=0.9;}
+    W.mo.apply(W.energy,dt);W.head.rotation.y+=(THREE.MathUtils.clamp(controls.getAzimuthalAngle(),-1,1)*0.5-W.head.rotation.y)*Math.min(1,dt*4);
+    if(W.holo)W.holo.material.opacity=0.28+Math.sin(t*4)*0.1;}
+  ROOT.g.userData.holo.lookAt(camera.position);
+  clouds.forEach((c,i)=>{c.position.x+=dt*0.2;if(c.position.x>10)c.position.x=-10;});
+  if(camGoal){const p=(performance.now()-camGoal.s)/900,e=p>=1?1:1-Math.pow(1-p,3);camera.position.lerpVectors(camGoal._p0||camera.position,camGoal.p,0.12);controls.target.lerp(camGoal.t,0.12);if(p>=1)camGoal=null;else{if(!camGoal._p0)camGoal._p0=camera.position.clone();}}
+  controls.update();renderer.render(scene,camera);
+  frames++;const n=performance.now();if(n-ft>1000){$('fps').textContent=frames+' fps';frames=0;ft=n;}
+}
+log('escenario listo. Conectá AURA y ROOT (públicos).');buildBlocks(18);setLabel('Bañado La Estrella');flyToCity('banado',false);animate();
+</script>
+</body>
+</html>

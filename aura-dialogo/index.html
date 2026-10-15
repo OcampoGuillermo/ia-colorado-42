@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AURA — Recorrido Aéreo Chaqueño</title>
+<style>
+  :root{ --bg:#060b16; --panel:#0e1626; --line:rgba(255,255,255,.1); --txt:#eaf2ff; --mut:#9fb0c8; --cyan:#38e1ff; --gold:#ffb63d; --red:#e23b3b; }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:"Plus Jakarta Sans",system-ui,Segoe UI,Roboto,sans-serif}
+  #app{display:flex;min-height:100dvh}
+  #scene-wrap{position:relative;flex:1;min-height:60dvh}
+  #scene{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  #hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;align-items:center;background:rgba(6,11,22,.72);border:1px solid var(--line);border-radius:999px;padding:8px 12px;backdrop-filter:blur(12px)}
+  #dot{width:10px;height:10px;border-radius:50%;background:#666}
+  #cartela{width:400px;max-width:100%;background:linear-gradient(180deg,#101a2e,#0a111f);border-left:1px solid var(--line);padding:22px 20px 28px;display:flex;flex-direction:column;gap:14px}
+  .badge{display:inline-flex;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#06202a;background:var(--cyan);border-radius:999px;padding:5px 10px;font-weight:800;width:max-content}
+  h1{margin:0;font-size:34px;line-height:1;letter-spacing:-.02em}
+  h1 span{color:var(--cyan)} p.sub{margin:0;color:var(--mut);font-size:14px;line-height:1.5}
+  .shell{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;padding:8px}
+  .core{background:#0b1322;border-radius:14px;padding:12px;box-shadow:inset 0 1px 1px rgba(255,255,255,.12)}
+  label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.14em}
+  input,select{width:100%;background:#060c18;color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;outline:none}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  button{border:0;border-radius:999px;padding:12px 16px;font-weight:800;cursor:pointer;transition:transform .35s cubic-bezier(.32,.72,0,1),filter .35s;display:inline-flex;align-items:center;gap:8px}
+  button:active{transform:scale(.98)} #btnTalk{background:var(--cyan);color:#032430} #btnStop{background:#1a2538;color:#fff;border:1px solid var(--line)}
+  #btnDemo{background:var(--gold);color:#2a1a02} #btnFront{background:transparent;color:var(--txt);border:1px solid var(--line)}
+  button .ic{width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.18);display:inline-flex;align-items:center;justify-content:center}
+  #caps{min-height:54px;font-size:15px;line-height:1.5;background:#050a15;border:1px dashed rgba(56,225,255,.35);border-radius:12px;padding:10px 12px}
+  #log{font-size:12px;color:var(--mut);max-height:150px;overflow:auto;white-space:pre-wrap}
+  .dest-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .dest{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0a1324;cursor:pointer;font-size:12px}
+  .dest.active{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
+  .note{font-size:11px;color:var(--mut);line-height:1.5}
+  @media(max-width:900px){#app{flex-direction:column}#cartela{width:100%;border-left:0;border-top:1px solid var(--line)}#scene-wrap{min-height:62dvh}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="app">
+  <div id="scene-wrap">
+    <canvas id="scene"></canvas>
+    <div id="hud"><div id="dot"></div><div id="status" style="font-size:13px">AURA en vuelo — lista</div></div>
+  </div>
+  <aside id="cartela">
+    <div class="badge">IA al Colorado · Humano digital volador</div>
+    <h1>AURA <span>· aire chaqueño</span></h1>
+    <p class="sub">Robot caricaturesco estilo Iron Man. Flota con propulsores mientras viaja por Formosa, Chaco y Misiones. Nivel experto: historia de la región chaqueña argentina. Decí que sos recreación con IA si te preguntan.</p>
+    <div class="shell"><div class="core">
+      <label>Agent ID ElevenLabs</label>
+      <input id="agentId" placeholder="agent_... o ?agente= en la URL">
+      <div class="row" style="margin-top:8px">
+        <button id="btnTalk"><span class="ic">◉</span> Hablar</button>
+        <button id="btnStop">Cortar</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnDemo"><span class="ic">♪</span> Escucharlo sin conectarse</button>
+        <button id="btnFront">Volver al frente</button>
+      </div>
+    </div></div>
+    <div class="shell"><div class="core">
+      <label>Destino de vuelo — satélite real</label>
+      <div class="dest-grid" id="dests" style="margin-top:8px"></div>
+      <p class="sub" id="destText" style="margin-top:8px"></p>
+      <input id="ciudad" list="ciudades" placeholder="Decí o escribí: Clorinda, Pirané, Las Lomitas…" style="margin-top:8px">
+      <datalist id="ciudades"><option value="Formosa capital"></option><option value="El Colorado"></option><option value="Clorinda"></option><option value="Pirané"></option><option value="Las Lomitas"></option><option value="Bañado La Estrella"></option></datalist>
+      <div class="row" style="margin-top:8px"><button id="btnFly">✈ Volar a la ciudad</button><span id="cityLabel" style="font-size:12px;color:var(--mut)">📍 Bañado La Estrella</span></div>
+    </div></div>
+    <div id="caps">Tocá Hablar y preguntame: ¿qué ves desde el aire sobre el Bañado La Estrella?</div>
+    <div id="log"></div>
+    <p class="note">Micrófono va a ElevenLabs. Demo offline usa voz del dispositivo. Publicar en https (GitHub Pages) para micrófono y cámara. Transparencia: AURA es recreación con IA con fines educativos. Distingue documentado de atribuido.</p>
+  </aside>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const LIP_SYNC_OFFSET_MS = 0;
+const params = new URLSearchParams(location.search);
+const DEFAULT_AGENT = 'agent_8301m50tb78effcsq2q0jfhxgm6y';
+const inputAgent = document.getElementById('agentId');
+inputAgent.value = params.get('agente') || params.get('agent_id') || DEFAULT_AGENT;
+const statusEl = document.getElementById('status'), dot = document.getElementById('dot');
+const caps = document.getElementById('caps'), logEl = document.getElementById('log');
+function log(m){ logEl.textContent = (new Date().toLocaleTimeString()+' '+m+'\n'+logEl.textContent).slice(0,2000); }
+function setStatus(t,c){ statusEl.textContent=t; dot.style.background=c||'#666'; }
+
+// ---------- Escena ----------
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87b5e0);
+scene.fog = new THREE.Fog(0x87b5e0, 8, 26);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+camera.position.set(0.4, 1.75, 4.4);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0,1.45,0);
+controls.enableDamping = true; controls.minDistance=2.2; controls.maxDistance=9;
+controls.maxPolarAngle=1.65; controls.minPolarAngle=0.35;
+
+scene.add(new THREE.HemisphereLight(0xcfeaff, 0x2a3a2a, 0.95));
+const sun = new THREE.DirectionalLight(0xfff0d0, 1.6); sun.position.set(-4,6,3); scene.add(sun);
+const rim = new THREE.DirectionalLight(0x38e1ff, 0.9); rim.position.set(3,2,-3); scene.add(rim);
+
+// Suelo satelital real (Esri) + río + monte
+const groundMat = new THREE.MeshStandardMaterial({color:0x4a7c3a, roughness:1, side:THREE.DoubleSide});
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(24,24), groundMat);
+ground.rotation.x=-Math.PI/2; ground.position.y=-1.4; scene.add(ground);
+const river = new THREE.Mesh(new THREE.PlaneGeometry(2.2,28), new THREE.MeshStandardMaterial({color:0x3aa0d0, roughness:.4, metalness:.1, side:THREE.DoubleSide}));
+river.rotation.x=-Math.PI/2; river.position.set(1.2,-1.38,0); river.rotation.z=0.25; scene.add(river);
+// Nubes
+const clouds=[];
+const cloudMat = new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:.88, roughness:1});
+for(let i=0;i<9;i++){ const g=new THREE.Group();
+  for(let j=0;j<3;j++){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.35+Math.random()*0.3,16,16),cloudMat); s.position.set(j*0.5-0.5,Math.random()*0.2,0); s.scale.y=0.6; g.add(s); }
+  g.position.set((Math.random()-0.5)*16, 2.5+Math.random()*3, -4-Math.random()*8); scene.add(g); clouds.push(g);
+}
+
+// ---------- AURA robot caricaturesco volador ----------
+const aura = new THREE.Group(); scene.add(aura);
+const red = new THREE.MeshStandardMaterial({color:0xd63a2f, metalness:.55, roughness:.35, side:THREE.DoubleSide});
+const gold = new THREE.MeshStandardMaterial({color:0xf2b73d, metalness:.75, roughness:.28, side:THREE.DoubleSide});
+const dark = new THREE.MeshStandardMaterial({color:0x1a2333, metalness:.3, roughness:.6, side:THREE.DoubleSide});
+const glowCyan = new THREE.MeshStandardMaterial({color:0x0b2b33, emissive:0x38e1ff, emissiveIntensity:2.2});
+const glowOrange = new THREE.MeshStandardMaterial({color:0x3a1500, emissive:0xff8a1a, emissiveIntensity:2.5});
+
+function M(geo,mat,x=0,y=0,z=0){ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); return m; }
+
+// Torso
+const torso = M(new THREE.CapsuleGeometry(0.42,0.5,8,20), red, 0,1.35,0); torso.rotation.x=-0.25; aura.add(torso);
+const chest = M(new THREE.BoxGeometry(0.5,0.4,0.18), gold, 0,1.5,0.32); chest.rotation.x=-0.25; aura.add(chest);
+const reactorRing = M(new THREE.TorusGeometry(0.11,0.028,12,28), gold, 0,1.5,0.43); aura.add(reactorRing);
+const reactor = M(new THREE.CircleGeometry(0.095,28), glowCyan, 0,1.5,0.435); aura.add(reactor);
+const reactorLight = new THREE.PointLight(0x38e1ff, 2.2, 4); reactorLight.position.set(0,1.5,0.7); aura.add(reactorLight);
+// Mochila propulsora
+const pack = M(new THREE.BoxGeometry(0.55,0.5,0.22), gold, 0,1.45,-0.38); aura.add(pack);
+const packFlames=[];
+for(const sx of [-0.15,0.15]){ const f=M(new THREE.ConeGeometry(0.09,0.5,14),glowOrange, sx,1.05,-0.42); f.rotation.x=Math.PI; aura.add(f); packFlames.push(f); }
+
+// Hombros y brazos
+function makeArm(side){ const g=new THREE.Group(); g.position.set(0.52*side,1.62,0);
+  g.add(M(new THREE.SphereGeometry(0.16,18,18),gold,0,0,0));
+  const up=M(new THREE.CylinderGeometry(0.11,0.1,0.42,14),red,0,-0.28,0); g.add(up);
+  const fore=new THREE.Group(); fore.position.set(0,-0.5,0); fore.add(M(new THREE.CylinderGeometry(0.09,0.085,0.38,14),gold,0,-0.16,0));
+  fore.add(M(new THREE.SphereGeometry(0.12,16,16),red,0,-0.42,0.02));
+  const palmGlow=M(new THREE.CircleGeometry(0.05,16),glowCyan,0,-0.42,0.13); fore.add(palmGlow);
+  g.add(fore); aura.add(g); return {g,fore};
+}
+const armL=makeArm(-1), armR=makeArm(1);
+
+// Piernas en pose de vuelo (hacia atrás)
+function makeLeg(side){ const g=new THREE.Group(); g.position.set(0.2*side,1.0,0);
+  const th=M(new THREE.CylinderGeometry(0.13,0.12,0.45,14),red,0,-0.2,-0.1); th.rotation.x=1.05; g.add(th);
+  const boot=M(new THREE.CylinderGeometry(0.11,0.13,0.32,14),gold,0,-0.32,-0.38); boot.rotation.x=1.2; g.add(boot);
+  const flame=M(new THREE.ConeGeometry(0.1,0.55,14),glowOrange,0,-0.35,-0.62); flame.rotation.x=-1.2; g.add(flame);
+  const flameIn=M(new THREE.ConeGeometry(0.05,0.35,12),new THREE.MeshStandardMaterial({color:0xfff3a0,emissive:0xffe45e,emissiveIntensity:3}),0,-0.35,-0.62); flameIn.rotation.x=-1.2; g.add(flameIn);
+  aura.add(g); return {g,flame,flameIn};
+}
+const legL=makeLeg(-1), legR=makeLeg(1);
+
+// Cabeza cabezona caricaturesca
+const headG=new THREE.Group(); headG.position.set(0,2.12,0.08); aura.add(headG);
+const helmet=M(new THREE.SphereGeometry(0.38,28,28),red,0,0,0); helmet.scale.set(1.08,1,1.02); headG.add(helmet);
+const face=M(new THREE.SphereGeometry(0.3,24,24),new THREE.MeshStandardMaterial({color:0xf6e3c2,roughness:.6}),0,-0.04,0.18); face.scale.set(0.95,0.9,0.7); headG.add(face);
+const eyeL=M(new THREE.SphereGeometry(0.07,16,16),glowCyan,-0.12,0.02,0.36); eyeL.scale.set(1.3,0.9,0.5); headG.add(eyeL);
+const eyeR=eyeL.clone(); eyeR.position.x=0.12; headG.add(eyeR);
+const browL=M(new THREE.BoxGeometry(0.14,0.03,0.02),dark,-0.12,0.13,0.38); browL.rotation.z=0.1; headG.add(browL);
+const browR=browL.clone(); browR.position.x=0.12; browR.rotation.z=-0.1; headG.add(browR);
+for(const sx of [-0.38,0.38]){ headG.add(M(new THREE.CylinderGeometry(0.02,0.02,0.22,8),gold,sx,0.3,0)); headG.add(M(new THREE.SphereGeometry(0.045,12,12),glowCyan,sx,0.42,0)); }
+// Boca LED: labios + interior + dientes + lengua
+const mouthG=new THREE.Group(); mouthG.position.set(0,-0.18,0.38); headG.add(mouthG);
+const lips=M(new THREE.BoxGeometry(0.22,0.05,0.02),new THREE.MeshStandardMaterial({color:0x7a1f1f,roughness:.5}),0,0,0.01); mouthG.add(lips);
+const inner=M(new THREE.PlaneGeometry(0.2,0.16),new THREE.MeshBasicMaterial({color:0x090404}),0,-0.03,-0.005); mouthG.add(inner);
+const teeth=M(new THREE.PlaneGeometry(0.18,0.045),new THREE.MeshBasicMaterial({color:0xffffff}),0,0.02,0.0); mouthG.add(teeth);
+const tongue=M(new THREE.PlaneGeometry(0.1,0.06),new THREE.MeshBasicMaterial({color:0xd46a7a}),0,-0.08,0.0); mouthG.add(tongue);
+// Orejas / tornillos laterales
+for(const sx of [-0.4,0.4]){ headG.add(M(new THREE.CylinderGeometry(0.06,0.06,0.05,14),gold,sx,-0.05,0)); }
+
+aura.position.y=0.1; aura.rotation.x=-0.12;
+
+// Gestos
+const gestures=[
+  {l:[-0.2,0,0.3],r:[0.2,0,-0.3],h:0},
+  {l:[-0.9,0,0.6],r:[-0.9,0,-0.6],h:0.1},
+  {l:[-0.2,0,0.2],r:[-1.2,-0.4,-0.2],h:0.15},
+  {l:[-0.5,0.5,0.4],r:[0.3,0,-0.3],h:-0.1},
+  {l:[-0.2,0,0.3],r:[-2.4,0,-0.4],h:0.2},
+  {l:[-1.6,0,0.8],r:[1.6,0,-0.8],h:0.25},
+];
+let gestIdx=0, nextGest=0, energy=0, speaking=false;
+
+// Visemas
+let viseme={open:0,wide:0,round:0};
+let visTarget={open:0,wide:0,round:0};
+function charToViseme(ch){ ch=(ch||'').toLowerCase();
+  if('aáàâ'.includes(ch)) return 'A'; if('eéèêiíìîy'.includes(ch)) return 'E';
+  if('oóòôuúùüw'.includes(ch)) return 'O'; if('mbp'.includes(ch)) return 'M';
+  if(ch===' '||ch===','||ch==='.') return 'REST'; return 'N';
+}
+function setVisemeTarget(v, amp=1){ visTarget={open:0,wide:0,round:0};
+  if(v==='A') visTarget.open=1*amp; else if(v==='E') visTarget.wide=1*amp;
+  else if(v==='O') visTarget.round=1*amp; else if(v==='M') visTarget={open:0,wide:0,round:0};
+  else visTarget.open=0.15*amp;
+}
+function applyMouth(dt){ const k=1-Math.pow(0.0001,dt);
+  viseme.open+=(visTarget.open-viseme.open)*k; viseme.wide+=(visTarget.wide-viseme.wide)*k; viseme.round+=(visTarget.round-viseme.round)*k;
+  const o=viseme.open*(0.4+energy*1.4), w=viseme.wide*(0.4+energy), r=viseme.round;
+  const h=Math.max(0.008, o*0.16 + r*0.09 + 0.008);
+  const wd=0.12 + w*0.12 + o*0.03 - r*0.04;
+  lips.scale.set(Math.max(0.3,wd/0.22), Math.max(0.25,h/0.05),1);
+  inner.scale.set(Math.max(0.05,wd/0.2), Math.max(0.05,h/0.16),1);
+  inner.visible=h>0.015; teeth.visible=h>0.02; tongue.visible=o>0.25;
+  if(r>0.3){ lips.scale.x*=0.7; inner.scale.x*=0.7; }
+}
+
+// Cola de alineación ElevenLabs
+let alignQueue=[]; // {ch, t, d} t en reloj audio
+let audioT0=0, anchored=false;
+function pushAlignment(chars, starts, durs){ const now=performance.now();
+  if(!anchored){ audioT0=now; anchored=true; }
+  for(let i=0;i<chars.length;i++){ alignQueue.push({ch:chars[i], t:audioT0+(starts[i]||0)+LIP_SYNC_OFFSET_MS, d:durs?durs[i]||90:90}); }
+  alignQueue.sort((a,b)=>a.t-b.t); if(alignQueue.length>400) alignQueue=alignQueue.slice(-400);
+}
+function tickAlignment(){ const now=performance.now();
+  while(alignQueue.length && now>alignQueue[alignQueue.length-1].t+2000) alignQueue.shift();
+  const cur=alignQueue.find(a=>now>=a.t && now<=a.t+a.d);
+  if(cur){ const v=charToViseme(cur.ch);
+    if(v==='M'){ setVisemeTarget('M'); }
+    else{ const nxt=alignQueue[alignQueue.indexOf(cur)+1];
+      setVisemeTarget(v, 0.6+energy); // coarticulación simple
+      if(nxt && charToViseme(nxt.ch)==='M'){ /* preparar cierre */ }
+    } return true;
+  }
+  // entre letras: resto con energía
+  if(speaking){ visTarget.open*=0.9; } return false;
+}
+
+// ---------- Audio / ElevenLabs ----------
+let conversation=null, audioCtx=null, analyser=null, micData=null;
+async function ensureAudio(){ if(audioCtx) return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  analyser=audioCtx.createAnalyser(); analyser.fftSize=512;
+  micData=new Uint8Array(analyser.frequencyBinCount);
+  try{ const s=await navigator.mediaDevices.getUserMedia({audio:true});
+    const src=audioCtx.createMediaStreamSource(s); src.connect(analyser);
+  }catch(e){ log('sin mic: '+e.message); }
+}
+function measureEnergy(){ if(!analyser) return 0;
+  analyser.getByteTimeDomainData(micData);
+  let sum=0; for(let i=0;i<micData.length;i++){ const v=(micData[i]-128)/128; sum+=v*v; }
+  return Math.min(1, Math.sqrt(sum/micData.length)*4);
+}
+
+async function startTalk(){ const id=inputAgent.value.trim();
+  if(!id){ setStatus('Pegá tu agent_id para hablar, o usá la demo','orange'); log('falta agent_id: abrí ?agente=TU_ID'); return; }
+  await ensureAudio(); await audioCtx.resume();
+  setStatus('Conectando con AURA…','orange');
+  try{
+    const mod = await import('https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/dist/index.js').catch(()=>import('https://esm.sh/@elevenlabs/client@1.26.0'));
+    const { Conversation } = mod;
+    if(conversation) try{ await conversation.endSession(); }catch(e){}
+    alignQueue=[]; anchored=false;
+    conversation = await Conversation.startSession({
+      agentId:id,
+      clientTools:{ viajar_a_ciudad: async ({ciudad})=>{ flyAURA(String(ciudad||'')); return 'Volando'; } },
+      onConnect:()=>{ setStatus('AURA escucha — hablá','lime'); speaking=false; log('conectado'); },
+      onDisconnect:()=>{ setStatus('Desconectado','#666'); speaking=false; setVisemeTarget('REST'); },
+      onError:(e)=>{ log('error: '+(e?.message||JSON.stringify(e))); if(String(e).includes('voice_not_found')) log('tip: agregá la voz en Voice Library'); },
+      onMessage:(m)=>{ try{
+        const t=m?.message||m?.text||''; if(t){ caps.textContent=t; detectAURA(t); }
+        if(m?.chars||m?.alignment){ pushAlignment(m.chars||m.alignment.chars, m.char_start_times_ms||m.alignment?.char_start_times_ms||[], m.char_durations_ms||m.alignment?.char_durations_ms||[]); }
+        }catch(e){} },
+      onAudio:(e)=>{ speaking=true; },
+      onModeChange:(mo)=>{ speaking=(mo?.mode==='speaking'); if(mo?.mode==='listening'){ setStatus('AURA escucha…','lime'); } else { setStatus('AURA habla…','#38e1ff'); } }
+    });
+  }catch(err){ setStatus('No se pudo conectar','red'); log('fallo SDK: '+err.message+' — ¿agente público? ¿Security OFF? ¿https?'); }
+}
+async function stopTalk(){ try{ if(conversation) await conversation.endSession(); }catch(e){} speaking=false; setStatus('AURA en vuelo — lista','#666'); }
+
+// Demo offline
+function demo(){ ensureAudio();
+  const texto='¡Hola! Soy AURA, en vuelo sobre el Bañado La Estrella. Abajo veo agua, palmas y yacarés. Esta laguna nace del desborde del Pilcomayo y es historia viva del Chaco formoseño. ¿Querés que vuele a El Colorado o a las reducciones de Misiones?';
+  caps.textContent=texto; setStatus('Demo sin conexión','#ffb63d'); speaking=true;
+  const u=new SpeechSynthesisUtterance(texto); u.lang='es-ES'; u.rate=0.98;
+  const words=texto.split(' ');
+  u.onboundary=(e)=>{ if(e.charIndex!=null){ const c=texto.slice(e.charIndex,e.charIndex+12); const v=c.match(/[aeiouáéíóú]/i); setVisemeTarget(v?( 'aeo'.includes(v[0].toLowerCase())?(v[0].toLowerCase()==='a'?'A':v[0].toLowerCase()==='e'?'E':'O'):'E'):'N',0.9); } };
+  u.onend=()=>{ speaking=false; setVisemeTarget('REST'); setStatus('AURA en vuelo — lista','#666'); };
+  // fallback si no hay boundary: animar por palabra
+  let wi=0; const iv=setInterval(()=>{ if(!speaking){clearInterval(iv);return;} const w=words[wi++%words.length]; const m=w.match(/[aou]/i); setVisemeTarget(!m?'E':m[0].toLowerCase()==='a'?'A':m[0].toLowerCase()==='o'?'O':'E',0.9); },220);
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+document.getElementById('btnTalk').onclick=startTalk;
+document.getElementById('btnStop').onclick=stopTalk;
+document.getElementById('btnDemo').onclick=demo;
+
+// Volver al frente 0.9s por tiempo
+let frontAnim=null;
+document.getElementById('btnFront').onclick=()=>{
+  const p0=camera.position.clone(), t0=controls.target.clone();
+  const p1=new THREE.Vector3(0.4,1.75,4.4), t1=new THREE.Vector3(0,1.45,0);
+  const s=performance.now();
+  frontAnim={p0,t0,p1,t1,s};
+};
+
+// Destinos + ciudades satélite (Esri sin key)
+const DESTS=[
+  {id:'colorado', n:'El Colorado · Bermejo', sky:0x87b5e0, gnd:0x6a8c3f, txt:'Sobrevolamos El Colorado: río Bermejo rojo, chacras y obrajes. Historia de colonos, quebracho y algodón.', city:'el colorado'},
+  {id:'banado', n:'Bañado La Estrella', sky:0x7ec8e8, gnd:0x3f7c52, txt:'Bañado La Estrella: tercer humedal de Sudamérica. Desbordes del Pilcomayo, yacarés y memoria pilagá.', city:'banado'},
+  {id:'pilcomayo', n:'Clorinda · Pilcomayo', sky:0xd9a86c, gnd:0x8a6a3a, txt:'Clorinda y el Pilcomayo: frontera viva con Paraguay, fortines y humedales.', city:'clorinda'},
+  {id:'misiones', n:'Misiones Jesuíticas', sky:0x6aa8d8, gnd:0x2f6b3a, txt:'Rumbo a San Ignacio Miní: 1632, guaraníes y jesuitas, yerba y barroco. Patrimonio UNESCO 1984.', city:'san ignacio'},
+];
+const CIUDADES_AURA={
+  'formosa':{n:'Formosa capital',lat:-26.1775,lon:-58.1781,sky:0x7ec8e8,d:'Capital sobre el río Paraguay. Puerto, costanera y casa de gobierno.'},
+  'el colorado':{n:'El Colorado',lat:-26.3083,lon:-59.3717,sky:0x87b5e0,d:'Bermejo rojo, chacras y obrajes.'},
+  'colorado':{n:'El Colorado',lat:-26.3083,lon:-59.3717,sky:0x87b5e0,d:'Bermejo rojo.'},
+  'clorinda':{n:'Clorinda',lat:-25.2857,lon:-57.7189,sky:0xd9c07a,d:'Frontera con Paraguay y Pilcomayo.'},
+  'pirane':{n:'Pirané',lat:-25.7274,lon:-59.1086,sky:0x7ec8e8,d:'Centro agrícola.'},
+  'pirané':{n:'Pirané',lat:-25.7274,lon:-59.1086,sky:0x7ec8e8,d:'Centro agrícola.'},
+  'las lomitas':{n:'Las Lomitas',lat:-24.7036,lon:-60.5936,sky:0x7ec8e8,d:'Portal del Bañado.'},
+  'banado':{n:'Bañado La Estrella',lat:-24.15,lon:-60.35,sky:0x7ec8e8,d:'Tercer humedal de Sudamérica.'},
+  'bañado':{n:'Bañado La Estrella',lat:-24.15,lon:-60.35,sky:0x7ec8e8,d:'Tercer humedal.'},
+  'san ignacio':{n:'San Ignacio Miní',lat:-27.258,lon:-55.531,sky:0x6aa8d8,d:'Reducción 1632, UNESCO 1984.'},
+};
+const texL=new THREE.TextureLoader(); texL.setCrossOrigin('anonymous');
+function esriURL(lat,lon,span=0.14){ const d=span/2, c=1/Math.max(0.4,Math.cos(lat*Math.PI/180));
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${lon-d*c},${lat-d},${lon+d*c},${lat+d}&bboxSR=4326&imageSR=4326&size=1024%2C1024&format=png32&f=image`; }
+let labelS=null;
+function setLabelA(t){ if(labelS) scene.remove(labelS); const c=document.createElement('canvas'); c.width=512;c.height=96; const x=c.getContext('2d');
+  x.fillStyle='rgba(0,0,0,.65)'; x.beginPath(); x.roundRect(6,10,500,76,18); x.fill(); x.fillStyle='#38e1ff'; x.font='bold 40px sans-serif'; x.textAlign='center'; x.fillText(t.slice(0,22),256,62);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true})); sp.scale.set(3,0.56,1); sp.position.set(0,3.1,-2.5); scene.add(sp); labelS=sp; }
+function flyAURA(raw){ const key=(raw||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); let f=null; for(const k in CIUDADES_AURA){ if(key.includes(k)){f=k;break;} }
+  if(!f){ log('ciudad no encontrada: '+raw); return; } const C=CIUDADES_AURA[f];
+  document.getElementById('cityLabel').textContent='📍 '+C.n; document.getElementById('destText').textContent='Volando a '+C.n+' — '+C.d;
+  caps.textContent='✈ Volando a '+C.n+'. '+C.d; scene.background.set(C.sky); scene.fog.color.set(C.sky); setLabelA(C.n);
+  texL.load(esriURL(C.lat,C.lon,C.n.includes('Bañado')?0.35:0.14), t=>{ t.colorSpace=THREE.SRGBColorSpace; groundMat.map=t; groundMat.color.set(0xffffff); groundMat.needsUpdate=true; }, undefined, ()=>{});
+  camera.position.set(0.4,4.2,7); }
+function detectAURA(t){ if(t) flyAURA(t); }
+const destWrap=document.getElementById('dests'), destText=document.getElementById('destText');
+let destIdx=1;
+DESTS.forEach((d,i)=>{ const b=document.createElement('div'); b.className='dest'+(i===destIdx?' active':''); b.textContent=d.n; b.onclick=()=>{ destIdx=i; [...destWrap.children].forEach((x,j)=>x.classList.toggle('active',j===i)); destText.textContent=d.txt; flyAURA(d.city); }; destWrap.appendChild(b); });
+destText.textContent=DESTS[destIdx].txt;
+document.getElementById('btnFly').onclick=()=>flyAURA(document.getElementById('ciudad').value||'formosa');
+
+// Teclado: flechas giran, + - zoom
+addEventListener('keydown',(e)=>{ const sp=0.18;
+  if(e.key==='ArrowLeft'){ const a=controls.getAzimuthalAngle(); controls.setAzimuthalAngle(a-sp); }
+  if(e.key==='ArrowRight'){ const a=controls.getAzimuthalAngle(); controls.setAzimuthalAngle(a+sp); }
+  if(e.key==='+'||e.key==='=') camera.position.multiplyScalar(0.92);
+  if(e.key==='-') camera.position.multiplyScalar(1.08);
+});
+
+// Resize + cartela que no tapa la cara
+function resize(){ const w=document.getElementById('scene-wrap');
+  const ww=w.clientWidth, hh=w.clientHeight; renderer.setSize(ww,hh,false); camera.aspect=ww/hh;
+  if(ww>900){ camera.setViewOffset(ww,hh,-70,0,ww,hh); } else { camera.setViewOffset(ww,hh,0,0,ww,hh); }
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize',resize);
+
+// Loop
+const clock=new THREE.Clock();
+function animate(){ requestAnimationFrame(animate);
+  const dt=Math.min(0.05,clock.getDelta()), t=clock.elapsedTime;
+  resize._c=(resize._c||0)+1; if(resize._c%30===0) resize();
+  // vuelo
+  aura.position.y=0.1+Math.sin(t*1.8)*0.14;
+  aura.rotation.z=Math.sin(t*0.9)*0.06;
+  aura.rotation.x=-0.12+Math.sin(t*1.3)*0.03;
+  const az=controls.getAzimuthalAngle(); aura.rotation.y=az*0.25;
+  // llamas
+  const fl=1+Math.sin(t*28)*0.22+energy*0.8;
+  legL.flame.scale.set(1,fl,1); legR.flame.scale.set(1,2-fl*0.5,1);
+  packFlames.forEach((f,i)=>f.scale.set(1,1+Math.sin(t*24+i)*0.25+energy*0.6,1));
+  reactor.material.emissiveIntensity=2+Math.sin(t*6)*0.5+energy;
+  reactorLight.intensity=2+energy*4;
+  clouds.forEach((c,i)=>{ c.position.x+=dt*(0.15+i*0.02); if(c.position.x>10) c.position.x=-10; });
+  river.material.color.offsetHSL(dt*0.005,0,0);
+  // destino: lerp colores (si hay satélite, no pisa la textura)
+  const D=DESTS[destIdx];
+  scene.background.lerp(new THREE.Color(D.sky),dt*1.2); scene.fog.color.copy(scene.background);
+  if(!groundMat.map) groundMat.color.lerp(new THREE.Color(D.gnd),dt*1.2);
+  // energía y gestos
+  energy+=((speaking?measureEnergy()*1.2+0.25:measureEnergy()*0.4)-energy)*Math.min(1,dt*6);
+  if(t>nextGest){ gestIdx=(gestIdx+1)%gestures.length; nextGest=t+1.6+Math.random()*2.2; }
+  const G=gestures[gestIdx], kk=Math.min(1,dt*4);
+  armL.g.rotation.x+=(G.l[0]-armL.g.rotation.x)*kk; armR.g.rotation.x+=(G.r[0]-armR.g.rotation.x)*kk;
+  armL.g.rotation.z+=(G.l[2]-armL.g.rotation.z)*kk; armR.g.rotation.z+=(G.r[2]-armR.g.rotation.z)*kk;
+  headG.rotation.y+=(THREE.MathUtils.clamp(az,-1.1,1.1)*0.55-headG.rotation.y)*kk;
+  headG.rotation.x+=(((speaking?-0.08:0.08)+ (az>2.2||az<-2.2?0:0))-headG.rotation.x)*kk;
+  browL.position.y=0.13+(speaking?Math.sin(t*7)*0.012+energy*0.03:0);
+  browR.position.y=0.13+(speaking?Math.sin(t*7+1)*0.012+energy*0.03:0);
+  // boca
+  const hadAlign=tickAlignment();
+  if(!hadAlign && speaking && !alignQueue.length){ setVisemeTarget(Math.random()<0.5?'A':'E',0.35+energy); }
+  if(!speaking && !hadAlign){ visTarget.open*=0.92; visTarget.wide*=0.92; visTarget.round*=0.92; }
+  applyMouth(dt);
+  // volver al frente por tiempo 0.9s
+  if(frontAnim){ const p=(performance.now()-frontAnim.s)/900; const e=p>=1?1:1-Math.pow(1-p,3);
+    camera.position.lerpVectors(frontAnim.p0,frontAnim.p1,e); controls.target.lerpVectors(frontAnim.t0,frontAnim.t1,e);
+    if(p>=1) frontAnim=null;
+  }
+  controls.update(); renderer.render(scene,camera);
+}
+resize(); setStatus('AURA en vuelo — lista','#666'); setLabelA('Bañado La Estrella'); flyAURA('banado'); log('listo. satélite + viaje por voz activos.');
+animate();
+</script>
+</body>
+</html>
