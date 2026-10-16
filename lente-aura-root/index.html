@@ -26,6 +26,17 @@
     <button class="gold" id="sound">🔊 Activar sonido</button>
     <button id="mode">Modo: video</button>
   </div>
+  <div class="bar">
+    <button class="pri" id="chAmbos">Ambos</button>
+    <button id="chAura">Solo AURA</button>
+    <button id="chRoot">Solo ROOT</button>
+  </div>
+  <div class="bar">
+    <button class="pri" id="vAura">🎙 Hablar con AURA</button>
+    <button class="pri" id="vRoot">🎙 Hablar con ROOT</button>
+    <button id="vStop">Cortar voz</button>
+    <span id="vdots" style="font-size:12px;align-self:center">⚪ AURA ⚪ ROOT</span>
+  </div>
   <div id="hint">La cámara solo funciona en <b>https</b> (GitHub Pages), no abriendo el archivo suelto. Si el video sale mudo, tocá Activar sonido. AURA y ROOT son recreaciones con IA (fines educativos).</div>
 </div>
 <video id="clip" playsinline loop muted crossorigin="anonymous" style="display:none"></video>
@@ -35,6 +46,36 @@ import { MindARThree } from 'mindar';
 const $=id=>document.getElementById(id);
 const status=t=>{$('status').innerHTML=t;};
 let mindar=null, started=false, mode='video', videoOK=false, soundOn=false;
+let currentChar='ambos', tagMesh=null, voiceConv=null, voiceWho=null, voiceSpeaking=false;
+const AURA_ID='agent_8301m50tb78effcsq2q0jfhxgm6y', ROOT_ID='agent_2701m50vk6p4ed1a26b4shgzf6wb';
+function tagTexture(label){ const c=document.createElement('canvas'); c.width=512;c.height=96; const x=c.getContext('2d');
+  x.fillStyle='rgba(0,0,0,.8)'; x.fillRect(0,0,512,96); x.fillStyle='#38e1ff'; x.font='bold 36px sans-serif'; x.textAlign='center'; x.fillText(label.slice(0,26),256,60);
+  const t=new THREE.CanvasTexture(c); return t; }
+function setChar(c){ currentChar=c;
+  for(const [id,on] of [['chAmbos',c==='ambos'],['chAura',c==='A'],['chRoot',c==='R']]) $(id).classList.toggle('pri',on);
+  const label=c==='ambos'?'AURA + ROOT · Lente DIA':c==='A'?'AURA · historia chaqueña':'ROOT · IA y tecnología';
+  if(tagMesh){ const old=tagMesh.material.map; tagMesh.material.map=tagTexture(label); tagMesh.material.needsUpdate=true; if(old)old.dispose(); }
+  if(c==='A'){ status('🤖 Solo AURA sobre la lámina. Conecto su voz…'); talkVoice('A'); }
+  else if(c==='R'){ status('🧒 Solo ROOT sobre la lámina. Conecto su voz…'); talkVoice('R'); }
+  else status('🤖🧒 Ambos sobre la lámina. Elegí con quién hablar por voz.'); }
+$('chAmbos').onclick=()=>setChar('ambos'); $('chAura').onclick=()=>setChar('A'); $('chRoot').onclick=()=>setChar('R');
+function paintDots(){ const el=$('vdots'); if(el) el.textContent=(voiceWho==='A'?(voiceSpeaking?'🔵':'🟢'):'⚪')+' AURA '+(voiceWho==='R'?(voiceSpeaking?'🔵':'🟢'):'⚪')+' ROOT'; }
+async function talkVoice(who){ const id=who==='A'?AURA_ID:ROOT_ID, name=who==='A'?'AURA':'ROOT';
+  try{ const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); }
+  catch(e){ status('🎙 Permití el <b>micrófono</b> para hablar con '+name+'.'); return; }
+  status('⌛ Conectando voz con '+name+'…');
+  try{ if(voiceConv) try{ await voiceConv.endSession(); }catch(e){} voiceConv=null;
+    const mod=await import('https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/dist/index.js').catch(()=>import('https://esm.sh/@elevenlabs/client@1.26.0'));
+    voiceConv=await mod.Conversation.startSession({ agentId:id,
+      onConnect:()=>{ voiceWho=who; paintDots(); status('🎙 Habla: te escucha '+name+' (por el parlante del celu).'); },
+      onDisconnect:()=>{ voiceWho=null; voiceSpeaking=false; paintDots(); },
+      onError:e=>status('❌ Voz: '+String(e?.message||e).slice(0,120)),
+      onMessage:m=>{ const t=m?.message||m?.text; if(t) status('<b>'+name+':</b> '+t); },
+      onModeChange:mo=>{ voiceSpeaking=(mo?.mode==='speaking'); paintDots(); }
+    });
+  }catch(err){ status('❌ Voz: '+err.message+' ¿Agente público? ¿https?'); } }
+$('vAura').onclick=()=>talkVoice('A'); $('vRoot').onclick=()=>talkVoice('R');
+$('vStop').onclick=async()=>{ try{ await voiceConv?.endSession(); }catch(e){} voiceConv=null; voiceWho=null; voiceSpeaking=false; paintDots(); status('Voz cortada. La cámara sigue activa.'); };
 // Query: ?video=URL ?model=URL ?marker=URL
 const q=new URLSearchParams(location.search);
 const MARKER=q.get('marker')||'./targets.mind';
@@ -66,11 +107,10 @@ $('start').onclick=async()=>{
     // Marco dorado + etiqueta
     const frame=new THREE.Mesh(new THREE.BoxGeometry(1.58,0.92,0.02),new THREE.MeshBasicMaterial({color:0xf0c75e}));
     frame.position.set(0,0.15,0.02); frame.visible=false; anchor.group.add(frame);
-    // Etiqueta AURA+ROOT
-    const c=document.createElement('canvas'); c.width=512;c.height=96; const x=c.getContext('2d');
-    x.fillStyle='rgba(0,0,0,.8)'; x.fillRect(0,0,512,96); x.fillStyle='#38e1ff'; x.font='bold 40px sans-serif'; x.textAlign='center'; x.fillText('AURA + ROOT · Lente DIA',256,62);
-    const tag=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,side:THREE.DoubleSide}));
-    tag.position.set(0,0.75,0.05); tag.visible=false; anchor.group.add(tag);
+    // Etiqueta (cambia según personaje: Ambos / AURA / ROOT)
+    tagMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.2),new THREE.MeshBasicMaterial({map:tagTexture('AURA + ROOT · Lente DIA'),transparent:true,side:THREE.DoubleSide}));
+    tagMesh.position.set(0,0.75,0.05); tagMesh.visible=false; anchor.group.add(tagMesh);
+    const tag=tagMesh;
     // Modelo 3D opcional
     let model=null;
     try{ const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js'); const l=new GLTFLoader();
@@ -83,6 +123,7 @@ $('start').onclick=async()=>{
     const clock=new THREE.Clock();
     renderer.setAnimationLoop(()=>{ const dt=Math.min(0.05,clock.getDelta()),t=clock.elapsedTime;
       plane.position.y=0.15+Math.sin(t*1.6)*0.03; tag.position.y=0.75+Math.sin(t*1.6+1)*0.02;
+      const pulse=(voiceSpeaking&&tag.visible)?1+Math.sin(t*10)*0.07:1; tag.scale.set(pulse,pulse,1);
       if(model&&model.scene.visible) model.scene.rotation.y+=dt*0.5;
       renderer.render(scene,camera); });
     await mindar.start(); started=true; status('🔎 Buscando marcador… enfocá la lámina impresa.');
