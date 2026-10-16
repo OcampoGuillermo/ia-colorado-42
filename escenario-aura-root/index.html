@@ -46,9 +46,9 @@ textarea{min-height:120px} .col2{display:grid;grid-template-columns:1fr 1fr;gap:
 
 <div class="panel" id="p-vivo">
 <div class="col2">
-<div><label>AURA — agent_8301m50tb78effcsq2q0jfhxgm6y</label><input id="idA" value="agent_8301m50tb78effcsq2q0jfhxgm6y">
+<div><div class="pill" style="margin-bottom:8px">🤖 <b>AURA</b> · historia chaqueña — lista para hablar</div>
 <div class="row" style="margin-top:8px"><button class="pri" id="cA">Conectar AURA</button><button id="xA">Cortar</button></div></div>
-<div><label>ROOT — agent_2701m50vk6p4ed1a26b4shgzf6wb</label><input id="idR" value="agent_2701m50vk6p4ed1a26b4shgzf6wb">
+<div><div class="pill" style="margin-bottom:8px">🧒 <b>ROOT</b> · IA y tecnología — listo para hablar</div>
 <div class="row" style="margin-top:8px"><button class="pri" id="cR">Conectar ROOT</button><button id="xR">Cortar</button></div></div>
 </div>
 <div class="row" style="margin-top:10px"><button class="gold" id="duelo">Duelo: OFF (los dos responden)</button>
@@ -58,8 +58,6 @@ textarea{min-height:120px} .col2{display:grid;grid-template-columns:1fr 1fr;gap:
 <div class="row" style="margin-top:8px"><input id="ciudad" list="ciudades" placeholder="Preguntá por voz o escribí: Clorinda, Pirané, Las Lomitas…" style="flex:1;min-width:200px">
 <datalist id="ciudades"><option value="Formosa capital"></option><option value="El Colorado"></option><option value="Clorinda"></option><option value="Pirané"></option><option value="Las Lomitas"></option><option value="Ingeniero Juárez"></option><option value="Bañado La Estrella"></option><option value="San Ignacio Miní"></option></datalist>
 <button class="pri" id="volar">✈ Volar</button><span class="pill" id="cityLabel">📍 Bañado La Estrella</span></div>
-<p style="font-size:11px;color:var(--mut);margin:6px 0 0">Decí en voz alta: “Volemos a Clorinda” o “Vamos a El Colorado” y viajamos sobre la ciudad con satélite real. En ElevenLabs agregá la client-tool <b>viajar_a_ciudad</b> (parámetro ciudad) para viaje automático.</p>
-<div id="log"></div>
 </div>
 
 <div class="panel" id="p-guion" hidden>
@@ -75,7 +73,7 @@ ROOT: Un limnímetro solar con radio, más una cámara trampa para el oso melero
 </div>
 
 <div class="panel" id="p-cap" hidden>
-<div class="row"><button class="pri" id="playCap">▶ Reproducir Capítulo 16:9 (voz local)</button><button id="stopCap">Detener</button><span style="font-size:12px;color:var(--mut)">Cámaras de cine automáticas + subtítulos</span></div>
+<div class="row"><button class="pri" id="playCap">▶ Reproducir Capítulo 16:9 (voz local)</button><button id="stopCap">Detener</button></div>
 </div>
 <div class="panel" id="p-short" hidden>
 <div class="row"><button class="pri" id="playShort">▶ Reproducir Short 9:16 vertical</button><button id="stopShort">Detener</button></div>
@@ -87,13 +85,12 @@ ROOT: Un limnímetro solar con radio, más una cámara trampa para el oso melero
 <label>Etiquetas</label><input id="ytK">
 <div class="row"><img id="thumb" style="max-width:320px;border-radius:12px;border:1px solid var(--line)" alt=""><a id="dl" download="miniatura-aura-root.png" style="color:var(--cy)">Descargar miniatura</a></div>
 </div>
-<p style="font-size:11px;color:var(--mut)">En vivo usa micrófono → ElevenLabs (agentes públicos, Security OFF). Cinematic usa voz del dispositivo para no gastar créditos. Grabá con 2 celulares como en Paso 1. Transparencia: son recreaciones con IA.</p>
 </main>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const $=id=>document.getElementById(id);
-const log=m=>{ $('log').textContent=(new Date().toLocaleTimeString()+' '+m+'\n'+$('log').textContent).slice(0,2500); };
+const log=m=>{ const el=$('log'); if(!el) return; el.textContent=(new Date().toLocaleTimeString()+' '+m+'\n'+el.textContent).slice(0,2500); };
 document.querySelectorAll('.tag').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.tag').forEach(x=>x.classList.remove('on')); b.classList.add('on');
   const t=b.dataset.tab; $('p-vivo').hidden=t!=='vivo'; $('p-guion').hidden=t!=='guion'; $('p-cap').hidden=t!=='cap'; $('p-short').hidden=t!=='short'; $('p-yt').hidden=t!=='yt';
   document.body.classList.toggle('shortMode', t==='short'); onResize(); if(t==='cap') setCam('wide'); if(t==='short') setCam('vert'); });
@@ -111,8 +108,7 @@ const rim=new THREE.DirectionalLight(0x38e1ff,0.8); rim.position.set(4,2,-4); sc
 const groundMat = new THREE.MeshStandardMaterial({color:0x3f7c52, roughness:1, side:THREE.DoubleSide});
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(24,24), groundMat);
 ground.rotation.x=-Math.PI/2; ground.position.y=-1.6; scene.add(ground);
-const river=new THREE.Mesh(new THREE.PlaneGeometry(2.4,30),new THREE.MeshStandardMaterial({color:0x3aa0d0,roughness:.35,side:THREE.DoubleSide}));
-river.rotation.x=-Math.PI/2; river.position.set(1,-1.57,0); river.rotation.z=0.2; scene.add(river);
+// (río decorativo eliminado: el satélite ya muestra los ríos reales)
 // anillo de monte lejano
 { const treeG=new THREE.ConeGeometry(0.35,1.1,7), treeM=new THREE.MeshStandardMaterial({color:0x2c5a30,roughness:1});
   const trees=new THREE.InstancedMesh(treeG,treeM,140); const d=new THREE.Object3D();
@@ -242,9 +238,10 @@ async function ensureMic(){if(ctx)return;ctx=new(window.AudioContext||window.web
 function energy(){if(!an)return 0;an.getByteTimeDomainData(buf);let sm=0;for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128;sm+=v*v;}return Math.min(1,Math.sqrt(sm/buf.length)*4);}
 function pushQ(ch,qs,ds,ds2){for(let i=0;i<ch.length;i++)ch&&qs.push({c:ch[i],t:performance.now()+(qs._t0!=null?0:0)+( (arguments[1]&&false)?0:0)});}
 let convA=null,convR=null,duel=false;
+const AURA_ID='agent_8301m50tb78effcsq2q0jfhxgm6y', ROOT_ID='agent_2701m50vk6p4ed1a26b4shgzf6wb';
 $('duelo').onclick=e=>{duel=!duel;e.target.textContent='Duelo: '+(duel?'ON':'OFF (los dos responden)');};
 async function connect(which){await ensureMic();await ctx.resume();
-  const isA=which==='A', id=$(isA?'idA':'idR').value.trim(), who=isA?AURA:ROOT;
+  const isA=which==='A', id=isA?AURA_ID:ROOT_ID, who=isA?AURA:ROOT;
   if(!id){log('falta id '+which);return;}
   setDot(which,'orange');log('conectando '+(isA?'AURA':'ROOT'));
   try{const mod=await import('https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.26.0/dist/index.js').catch(()=>import('https://esm.sh/@elevenlabs/client@1.26.0'));
