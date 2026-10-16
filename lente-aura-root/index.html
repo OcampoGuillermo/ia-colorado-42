@@ -114,6 +114,9 @@ $('start').onclick=async()=>{
     status('✅ Cámara permitida. Cargando marcador… (apuntá a la lámina)');
     mindar=new MindARThree({ container:document.querySelector('#ar'), imageTargetSrc:MARKER, maxTrack:1 });
     const {renderer,scene,camera}=mindar;
+    scene.add(new THREE.HemisphereLight(0xffffff,0x8a97a8,1.8));
+    const key=new THREE.DirectionalLight(0xffffff,2.4); key.position.set(2,4,3); scene.add(key);
+    const fill=new THREE.DirectionalLight(0xbfe3ff,0.9); fill.position.set(-3,1,-2); scene.add(fill);
     const anchor=mindar.addAnchor(0);
     // Plano de video 16:9 flotando sobre la lámina
     const v=$('clip');
